@@ -5,4 +5,4 @@ There are currently two notebooks here:
 CCD that leads to the buried channel where charge is stored.
 * Fringing: a study of the mechanisms and phenomenology of fringing
 in astronomical CCDs.
-* LabData: utilities and results from looking a lab sensor data.
+* LabData: utilities for studying lab sensor data with some results.
