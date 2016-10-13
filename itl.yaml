@@ -1,0 +1,97 @@
+# Specify the FITS inputs to read.
+inputs:
+    # Path to prepend to all filenames below.
+    path: /Data/ITL
+    # HDU containing the full sensor mosaic. Can be an integer or string.
+    hdu: 0
+    # Pixel dimensions for each amplifier region.
+    region_shape: [2000, 509]
+    # Number of amplifier regions along each axis.
+    regions: [2, 8]
+    # List of file identifiers and filenames.  Both values can be used in the plot
+    # filename and label using the outputs.plot_path and processing.label.format
+    # options below.
+    names:
+        400nm: ITL-3800C-107_lambda_flat_0400_008_20160919233039_assembled.fits
+        700nm: ITL-3800C-107_lambda_flat_0700_038_20160920003813_assembled.fits
+        800nm: ITL-3800C-107_lambda_flat_0800_048_20160920010149_assembled.fits
+        900nm: ITL-3800C-107_lambda_flat_0900_057_20160920012003_assembled.fits
+        1000nm: ITL-3800C-107_lambda_flat_1000_067_20160920014450_assembled.fits
+        1080nm: ITL-3800C-107_lambda_flat_1080_075_20160920022630_assembled.fits
+
+# Specify the plot and analysis outputs to create.
+outputs:
+    # Format string for creating output plot names.  The special strings {id} and
+    # {name} will be replaced with the corresponding values for the current file.
+    # The filename extension must be a valid graphics format supported by
+    # matplotlib.  The output pixel dimensions will exactly match the input
+    # pixel dimensions, with an optional downsampling factor (see below).
+    # Leave this parameter blank to prevent saving any plots.
+    plot_path: plots/{name}.png
+    # Name of the file where the table of results for each input is saved.
+    # The output format and must be one supported by astropy.table.Table.write():
+    # http://docs.astropy.org/en/stable/api/astropy.table.Table.html#astropy.table.Table.write
+    table_path: itl.ecsv
+    # Specify the table format explicitly, or leave it blank for autodetection
+    # based on the filename extension.
+    table_format: ascii.ecsv
+
+# Specify how to process each sensor's data.
+processing:
+
+    # Number of sigmas to clip when finding the median signal level for each amplifier.
+    num_sigmas_clip: 4.0
+
+    # Smoothing scale in pixels for filtering out slowly varying illumination levels.
+    # A positive value corresponds to a high-pass filter and a negative value gives
+    # the complementary low-pass filter.  Flip the sign to see what the high-pass
+    # filter is removing.
+    smoothing: 250
+
+    # The next group of parameters specify how to measure a 1D profile in the 2D data.
+    # The profile measurement can be disabled by setting this to 'no'.
+    measure_profile: yes
+    # Line start and end points in pixels relative to the bottom-left corner.
+    line_start: [292, 1024]
+    line_stop: [468, 872]
+    # Effective width of the line, specified as a sigma value in pixels for
+    # Gaussian weighting as a function of transverse distance to the line.
+    line_sigma: 50
+
+    # The remaining parameters control the format of the output plot and have
+    # no effect when the plot_path parameter above is not set.
+
+    # Zoom in to a region [y1:y2, x1:x2] in pixel units. Leave blank for no zoom.
+    #zoom: [1000, 2500, 500, 1500]
+    zoom:
+    # Downsample the plot dimensions relative to the sensor dimensions by the
+    # specified integer factor.  Use a value of 1 for no downsampling.
+    downsampling: 4
+    # Percentage of pixel values to clip symmetrically when mapping to color.
+    clip_percent: 10
+    # Apply a histogram equalization of unclipped pixel values, to improve
+    # contrast over a large dynamic range.
+    equalize: no
+    # Matplotlib color map to use.  Should normally be one of the perceptually
+    # uniform sequential maps.
+    colormap: viridis
+
+    # The following options control how the plot is labeled.
+    label:
+        # Format string for generating the label. The special strings {id} and
+        # {name} will be replaced with the corresponding values for the current
+        # file. Leave this parameter blank for a plot with no label.
+        format: 'ITL {id}'
+        # Label location relative to the plot frame.  One of tl, tr, bl, br.
+        location: tl
+        # Label font size as a fraction of the full plot height.
+        size: 0.025
+
+    # The following options control how the inset 1D profile plot is displayed
+    # and are ignored unless measure_profile is 'yes' above.
+    profile_plot:
+        # Location of the profile plot. One of: tr, tl, bl, br, l, r, b, t, c.
+        location: tr
+        # Grid spacing in x (pixels) and y (ADU) for the inset 1D profile plot.
+        xgrid: 10
+        ygrid: 2

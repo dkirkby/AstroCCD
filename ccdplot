@@ -1,0 +1,141 @@
+#!/usr/bin/env python
+
+# Licensed under a 3-clause BSD style license - see LICENSE file.
+from __future__ import print_function, division
+
+
+import os
+import os.path
+import argparse
+
+import yaml
+
+import fitsio
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+import astropy.table
+
+import ccd.analysis
+import ccd.display
+
+
+def main(args=None):
+
+    # parse command-line arguments
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('config', help='YAML configuration file to use.')
+    parser.add_argument('-v', '--verbose', action='store_true',
+        help='provide verbose output on progress')
+    args = parser.parse_args(args)
+
+    # Read the configuration for this job.
+    with open(args.config) as f:
+        config = yaml.safe_load(f)
+    inputs = config['inputs']
+    outputs = config['outputs']
+    proc = config['processing']
+
+    # Initialize the output table.
+    table = astropy.table.Table()
+    table['median_signal'] = astropy.table.Column(
+        description='Clipped median signal level in ADU',
+        format='%.3f', unit='adu')
+    table['peak_to_peak'] = astropy.table.Column(
+        description='Peak to peak range of 1D profile in ADU',
+        format='%.3f', unit='adu')
+
+    # Loop over input files.
+    path = inputs['path']
+    regions = tuple(inputs['regions'])
+    region_shape = tuple(inputs['region_shape'])
+    full_shape = tuple([n[0] * n[1] for n in zip(regions, region_shape)])
+    assert os.path.exists(path), 'Non-existent inputs path.'
+    for idtag, name in inputs['names'].iteritems():
+
+        row = {}
+
+        # Read the pixel data and check its dimensions.
+        filename = os.path.join(path, name)
+        fits = fitsio.FITS(filename)
+        data = fits[inputs['hdu']].read()
+        assert data.shape == full_shape, 'Invalid data shape.'
+        if args.verbose:
+            print('Processing {0}:'.format(idtag))
+
+        # Zero and high-pass filter each amplifier region separately.
+        levels, mask = ccd.analysis.zero_by_region(
+            data, region_shape, proc['num_sigmas_clip'], proc['smoothing'])
+        level = np.median(levels)
+        row['median_signal'] = level
+        if args.verbose:
+            print('  Median signal is {:.2f} ADU.'.format(level))
+
+        if proc['measure_profile']:
+            edges, profile = ccd.analysis.measure_profile(
+                data, mask, proc['line_start'], proc['line_stop'],
+                sigma=proc['line_sigma'])
+            pk2pk = np.max(profile) - np.min(profile)
+            row['peak_to_peak'] = pk2pk
+            if args.verbose:
+                print('  1D profile peak-to-peak range is {:.2f} ADU.'
+                      .format(pk2pk))
+
+        # The remaining steps generate the output plot.
+        if not outputs['plot_path']:
+            continue
+
+        if proc['zoom']:
+            zoom = [slice(*proc['zoom'][:2]), slice(*proc['zoom'][2:])]
+            data, mask = data[zoom], mask[zoom]
+
+        if proc['downsampling']:
+            data, mask = ccd.analysis.downsample(
+                data, mask, proc['downsampling'])
+
+        clip_pct = proc['clip_percent']
+        if proc['equalize']:
+            data = equalize(data, clip_pct) - 0.5
+
+        # Get the clip range to use for plotting.
+        lo, hi = np.percentile(
+            data[mask].reshape(-1), (0.5 * clip_pct, 100 - 0.5 * clip_pct))
+
+        figure, axes = ccd.display.plot_pixels(
+            data, lo, hi, cmap=proc['colormap'])
+
+        # Draw the line profile if any.
+        if proc['measure_profile']:
+            ccd.display.draw_line(
+                proc['line_start'], proc['line_stop'],
+                half_width=proc['line_sigma'], axes=axes,
+                scale=proc['downsampling'])
+            pplot = proc['profile_plot']
+            ccd.display.draw_profile(
+                edges, profile,
+                ccd.display.create_inset(axes, pplot['location']),
+                xgrid=pplot['xgrid'], ygrid=pplot['ygrid'])
+
+        if proc['label']['format']:
+            label = proc['label']['format'].format(id=idtag, name=name)
+            ccd.display.add_label(
+                label, proc['label']['location'], proc['label']['size'],
+                axes=axes)
+
+        save_name = outputs['plot_path'].format(id=idtag, name=name)
+        plt.savefig(save_name, dpi=figure.dpi)
+        if args.verbose:
+            print('  Saved {0}'.format(save_name))
+
+        table.add_row(row)
+
+        fits.close()
+
+    # Save the output table.
+    table.write(outputs['table_path'], format=outputs['table_format'])
+
+
+if __name__ == '__main__':
+    main()
