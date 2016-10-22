@@ -2,6 +2,9 @@
 *.pdf
 *.png
 
+# Output files
+*.ecsv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
