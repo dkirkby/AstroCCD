@@ -12,5 +12,6 @@ runs over a batch of FITS files to analyze them and produce plots, e.g.
 ```
 ./ccdplot --verbose itl.yaml
 ```
-Processing and display is configured by options in YAML file. See comments
-in this file for details on the available options.
+Processing and display is configured by options in the
+[YAML file](https://github.com/dkirkby/AstroCCD/blob/master/itl.yaml).
+See comments in this file for details on the available options.
